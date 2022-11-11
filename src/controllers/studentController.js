@@ -1,3 +1,4 @@
+const { default: mongoose } = require("mongoose");
 const studentModel = require("../models/studentModel");
 
 const addStudent = async (req, res) => {
@@ -42,7 +43,11 @@ const addStudent = async (req, res) => {
         .send({ status: false, message: "please provide valid marks" });
     }
 
-    const existing = await studentModel.findOne({ name, subject });
+    const existing = await studentModel.findOne({
+      name,
+      subject,
+      isDeleted: false,
+    });
 
     if (!existing) {
       const data = await studentModel.create({ name, subject, marks });
@@ -100,7 +105,7 @@ const getStudents = async (req, res) => {
         }
         filter.subject = subject;
       }
-
+      filter.isDeleted = false;
       const data = await studentModel.find(filter);
       if (!data.length) {
         return res.status(404).send({
@@ -110,7 +115,7 @@ const getStudents = async (req, res) => {
       }
       return res.status(200).send({ status: true, data });
     }
-    const data = await studentModel.find();
+    const data = await studentModel.find({ isDeleted: false });
     if (!data.length) {
       return res.status(404).send({
         status: false,
@@ -124,7 +129,128 @@ const getStudents = async (req, res) => {
   }
 };
 
+const updateStudent = async (req, res) => {
+  try {
+    const id = req.params.id;
+    let { subject, marks } = req.body;
+
+    if (!id || id.length < 24) {
+      return res.status(400).send({
+        status: false,
+        message:
+          "A valid Id in path params is required to delete a student record",
+      });
+    }
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).send({
+        status: false,
+        message: "Student id in path params isn't valid",
+      });
+    }
+
+    const regex = /^[a-zA-Z ]*$/;
+
+    if (!subject || typeof subject !== "string") {
+      return res
+        .status(400)
+        .send({ status: false, message: "please provide a valid subject" });
+    }
+
+    if (!regex.test(subject)) {
+      return res
+        .status(400)
+        .send({ status: false, message: "subject can only have alphabets" });
+    }
+
+    if (!marks || typeof marks !== "number" || marks < 0) {
+      return res
+        .status(400)
+        .send({ status: false, message: "please provide valid marks" });
+    }
+
+    const data = await studentModel.findById(id);
+
+    if (!data || data.isDeleted) {
+      return res
+        .status(404)
+        .send({ status: false, message: "There is no student with this id" });
+    }
+    if (data.subject !== subject) {
+      return res.status(400).send({
+        status: false,
+        message:
+          "Student doesn't have this subject in his records. Please create a new record",
+      });
+    }
+    marks += data.marks;
+
+    const updated = await studentModel.findByIdAndUpdate(
+      id,
+      { marks },
+      { new: true }
+    );
+
+    return res
+      .status(200)
+      .send({
+        status: true,
+        message: "Student updated successfully",
+        data: updated,
+      });
+  } catch (err) {
+    console.log(err.message);
+    res.status(500).send({
+      status: false,
+      message: "Internal Server error",
+      error: err.message,
+    });
+  }
+};
+
+const deleteStudent = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    if (!id || id.length < 24) {
+      return res.status(400).send({
+        status: false,
+        message:
+          "A valid Id in path params is required to delete a student record",
+      });
+    }
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).send({
+        status: false,
+        message: "Student id in path params isn't valid",
+      });
+    }
+    const data = await studentModel.findByIdAndUpdate(id, { isDeleted: true });
+    if (!data) {
+      return res
+        .status(404)
+        .send({ status: false, message: "There is no student with this id" });
+    }
+    if (data.isDeleted) {
+      return res
+        .status(404)
+        .send({ status: false, message: "No active student with this id" });
+    }
+    return res
+      .status(200)
+      .send({ status: true, message: "Student record deleted successfully" });
+  } catch (err) {
+    console.log(err.message);
+    res.status(500).send({
+      status: false,
+      message: "Internal Serve error",
+      err: err.message,
+    });
+  }
+};
+
 module.exports = {
   addStudent,
-  getStudents
+  getStudents,
+  deleteStudent,
+  updateStudent
 };

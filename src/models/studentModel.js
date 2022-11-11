@@ -12,6 +12,10 @@ const Student = new Schema(
     marks: {
       type: Number,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
