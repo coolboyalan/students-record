@@ -68,6 +68,63 @@ const addStudent = async (req, res) => {
   }
 };
 
+const getStudents = async (req, res) => {
+  try {
+    const query = Object.keys(req.query);
+    const filter = {};
+
+    if (query.length) {
+      const { name, subject } = req.query;
+
+      if (!name && !subject) {
+        return res.status(400).send({
+          status: false,
+          message: "Please provide valid query filters",
+        });
+      }
+      if (name) {
+        if (!name.length) {
+          return res.status(400).send({
+            status: false,
+            message: "Name in query params can't be empty",
+          });
+        }
+        filter.name = name;
+      }
+      if (subject) {
+        if (!subject.length) {
+          return res.status(400).send({
+            status: false,
+            message: "Subject in query params can't be empty",
+          });
+        }
+        filter.subject = subject;
+      }
+
+      const data = await studentModel.find(filter);
+      if (!data.length) {
+        return res.status(404).send({
+          status: false,
+          message: "No students found with matching filters",
+        });
+      }
+      return res.status(200).send({ status: true, data });
+    }
+    const data = await studentModel.find();
+    if (!data.length) {
+      return res.status(404).send({
+        status: false,
+        message: "No students found with matching filters",
+      });
+    }
+    return res.status(200).send({ status: true, data });
+  } catch (err) {
+    console.log(err.message);
+    res.status(500).send({ status: false, message: err.message });
+  }
+};
+
 module.exports = {
   addStudent,
+  getStudents
 };
